@@ -11,11 +11,12 @@ app = Flask(__name__)
 def get_db_connection():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
+        # Petite sécurité pour éviter un crash violent si la variable manque
         raise ValueError("DATABASE_URL manquante")
     conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
     return conn
 
-# --- ROUTES HTML ---
+# --- ROUTES HTML (PAGES) ---
 @app.route("/")
 def observatoire(): return render_template("observatoire.html")
 
@@ -37,7 +38,8 @@ def big_picture(): return render_template("index.html")
 @app.route("/methodology")
 def methodology(): return render_template("methodology.html")
 
-# --- ROUTES API (JSON) ---
+# --- ROUTES API (DONNÉES JSON) ---
+
 @app.route("/api/jobs")
 def api_jobs():
     try:
@@ -75,7 +77,38 @@ def api_d3_data():
         return jsonify(data)
     except Exception as e: return jsonify({"error": str(e)}), 500
 
-# --- ROUTES DE TÉLÉCHARGEMENT (Génération CSV dynamique) ---
+# --- ROUTES MANQUANTES (AJOUTÉES ICI POUR CORRIGER LES ERREURS) ---
+
+@app.route("/api/jobs/light")
+def api_jobs_light():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # On ne sélectionne que les colonnes légères (comme dans ton ancien code)
+        query = """
+            SELECT id, title, company, country, location, seniority_level, 
+                   salary_value, salary_currency, hybrid_policy, visa_sponsorship 
+            FROM jobs;
+        """
+        cur.execute(query)
+        jobs = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(jobs)
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+# Ces routes redirigent vers api_jobs() pour que ton vieux JavaScript fonctionne toujours
+@app.route("/api/data")
+def api_data_compat():
+    return api_jobs()
+
+@app.route("/api/stats-data")
+def api_stats_data_compat():
+    return api_jobs()
+
+
+# --- ROUTES DE TÉLÉCHARGEMENT (GÉNÉRATION CSV) ---
+
 @app.route("/download/stats")
 def download_stats():
     try:
@@ -89,6 +122,7 @@ def download_stats():
         if not rows: return "Pas de données", 404
 
         si = io.StringIO()
+        # Utilisation des clés du dictionnaire pour l'entête CSV
         writer = csv.DictWriter(si, fieldnames=rows[0].keys())
         writer.writeheader()
         writer.writerows(rows)
