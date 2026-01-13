@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Job Analysis — Safia Lamri</title>
+    <link rel="stylesheet" href="../static/style3.css" />
+  </head>
+  <script>
+    const currentPage = window.location.pathname.split("/").pop();
+    document.querySelectorAll(".menu a").forEach((link) => {
+      if (link.getAttribute("href") === currentPage) {
+        link.style.color = "cyan";
+      }
+    });
+  </script>
+  <!--  HERO VIDEO FULLSCREEN BANNER  -->
+  <header class="hero-banner">
+    <video autoplay muted loop playsinline>
+      <source
+        src="../static/Project_Video_for_Website_Banner.mp4"
+        type="video/mp4"
+      />
+      Your browser does not support the video tag.
+    </video>
+
+    <div class="banner-overlay">
+      <div class="hero-logo">
+        <div class="logo-ring"></div>
+        <div class="logo-core"></div>
+      </div>
+
+      <h1>Navigate the Data Universe</h1>
+      <p class="subtitle">Unlocking Your Career Trajectory in Data Science</p>
+      <p class="description">
+        A data science project exploring LinkedIn job offers in the data field
+        (Data Analyst, Scientist, Engineer...) to help you understand industry
+        trends and skill demands.<br />
+        Maybe your next opportunity is written in the stars?
+      </p>
+
+      <div class="hero-buttons">
+        <a href="#about" class="hero-btn">↓ Discover the Project</a>
+      </div>
+    </div>
+  </header>
+
+  <body>
+    <nav>
+      <a href="/startup" class="logo">Data<span>Universe</span></a>
+
+      <ul class="menu">
+        <li><a href="/" class="active">The Observatory</a></li>
+
+        <li class="dropdown">
+          <a href="/startup#project" class="dropdown-toggle">Project ▾</a>
+          <ul class="dropdown-content">
+            <li><a href="/explanation">Explanation</a></li>
+            <li><a href="/startup#objective">Objective</a></li>
+            <li><a href="/startup#motivation">Motivation</a></li>
+            <li><a href="/startup#tasks">Main Tasks</a></li>
+            <li><hr class="dropdown-divider" /></li>
+            <li class="dropdown-header">Results</li>
+            <li><a href="/startup#expected">Expected Results</a></li>
+          </ul>
+        </li>
+
+        <li><a href="/index">The Big Picture</a></li>
+        <li><a href="/explorateur">The Job Explorer</a></li>
+        <li><a href="/tendances">The Hidden Trends</a></li>
+        <li><a href="/startup#contact">Contact</a></li>
+      </ul>
+      <a
+        href="/static/DataUniverse_Guide.pdf"
+        class="guide-download"
+        target="_blank"
+      >
+        ⓘ Project Guide
+      </a>
+    </nav>
+
+    <section id="about">
+      <h2>About the Project</h2>
+      <p>
+        This project analyzes job offers in the data field to uncover typical
+        patterns across companies, skills, and regions. It combines descriptive
+        statistics, text mining, and clustering methods to reveal how jobs
+        naturally group together.
+      </p>
+      <p>
+        <a href="/explanation" class="hero-btn" style="margin-top: 1rem">
+          🎥 Watch the Explanation Video
+        </a>
+      </p>
+    </section>
+
+    <section id="objective">
+      <h2>Objective</h2>
+      <p>
+        The objective of this project is to make the Data job market readable,
+        transparent, and genuinely explorable. Job offers are numerous but
+        highly fragmented, written with inconsistent terminology, and evolving
+        extremely fast.
+      </p>
+      <p>
+        The core idea is to build a living observatory that captures,
+        structures, and visualizes market trends in real time — turning
+        thousands of job descriptions into an intelligible map.
+      </p>
+    </section>
+
+    <section id="motivation">
+      <h2>Motivation</h2>
+      <p>
+        The main motivation came from a simple challenge: understanding what the
+        Data job market truly expects. Platforms like LinkedIn display offers
+        individually, but they fail to provide:
+      </p>
+
+      <div class="grid" style="grid-template-columns: repeat(2, 1fr)" ;>
+        <div class="card-small">
+          <h3>Global Trends</h3>
+          <p>Understanding how roles evolve month after month.</p>
+        </div>
+        <div class="card-small">
+          <h3>Skill Evolution</h3>
+          <p>Tracking which tools are rising or declining.</p>
+        </div>
+        <div class="card-small">
+          <h3>Hidden Regularities</h3>
+          <p>Patterns that are invisible at the scale of individual offers.</p>
+        </div>
+        <div class="card-small">
+          <h3>Temporal Comparison</h3>
+          <p>A timeline of how the job market behaves over time.</p>
+        </div>
+      </div>
+
+      <p style="margin-top: 1rem">
+        This platform is not a job search engine, it is a
+        <strong>semantic and analytical observatory</strong> of the Data job
+        market.
+      </p>
+    </section>
+
+    <section id="tasks">
+      <h2>Main Tasks</h2>
+      <ul>
+        <li>Designing and stabilizing the monthly Python scraper,</li>
+        <li>Normalizing job titles and metadata,</li>
+        <li>
+          Automatically extracting technical skills, tools, soft skills, hybrid
+          policy, visa, etc.,
+        </li>
+        <li>Analyzing temporal trends and regional patterns,</li>
+        <li>Building interactive D3.js visualizations,</li>
+        <li>Developing the website structure and navigation,</li>
+        <li>
+          Automating the full monthly pipeline from scraping to visualization.
+        </li>
+      </ul>
+    </section>
+
+    <section id="expected">
+      <h2>Expected Results</h2>
+
+      <div class="grid-small" style="grid-template-columns: repeat(2, 1fr)" ;>
+        <div class="card-small">
+          <h3>Skill Trends</h3>
+          <p>Identify emerging or declining technical skills.</p>
+        </div>
+        <div class="card-small">
+          <h3>Job Type Evolution</h3>
+          <p>Track how roles shift across months and regions.</p>
+        </div>
+        <div class="card-small">
+          <h3>Regional Insights</h3>
+          <p>Understand differences across countries and work modes.</p>
+        </div>
+        <div class="card-small">
+          <h3>Structural Analysis</h3>
+          <p>Reveal how the market is organized internally.</p>
+        </div>
+      </div>
+
+      <p style="margin-top: 1rem">
+        Most of these goals are already achieved and will strengthen as the
+        database grows.
+      </p>
+    </section>
+
+    <section id="problems">
+      <h2>Problems Encountered</h2>
+
+      <p>Several major challenges shaped the direction of the project:</p>
+
+      <ul>
+        <li>
+          Early clustering attempts produced unusable results (one giant cluster
+          biased by company names). To overcome this, I adopted
+          <strong>BERTopic</strong>, which combines Transformer embeddings,
+          <strong>HDBSCAN</strong> for density-based clustering, and
+          <strong>c-TF-IDF</strong> for naming topics. The clusters were then
+          projected using <strong>UMAP</strong> and visualized in D3.js.
+          However, I am still not fully satisfied with the embeddings and aim to
+          improve them.
+        </li>
+
+        <li>
+          The dataset contains a temporal gap between June and October. I
+          decided to treat October as the true starting point of the monthly
+          timeline, and will address the gap in future iterations.
+        </li>
+      </ul>
+
+      <p>
+        These issues pushed the project toward a more analytical platform and
+        less toward raw clustering reliance.
+      </p>
+    </section>
+
+    <section id="insights">
+      <h2>Key Insights</h2>
+
+      <div class="grid-small" style="grid-template-columns: repeat(2, 1fr)" ;>
+        <div class="card-small">
+          <h3>Semantic Topic Modeling</h3>
+          <p>
+            Using BERTopic, job offers are grouped into meaningful themes based
+            on Transformer embeddings, HDBSCAN clustering, and c-TF-IDF
+            labeling. This reveals coherent job families such as Data
+            Engineering, BI, Machine Learning, or Analytics.
+          </p>
+        </div>
+
+        <div class="card-small">
+          <h3>Evolving Skills</h3>
+          <p>
+            The analysis highlights both dominant and emerging technical skills
+            across the market. Combined with monthly scraping, it allows
+            tracking how toolsets and expectations shift over time.
+          </p>
+        </div>
+
+        <div class="card-small">
+          <h3>Regional Patterns</h3>
+          <p>
+            By aggregating job metadata (country, hybrid policy, seniority), the
+            observatory uncovers geographic concentrations, seasonal peaks, and
+            regional differences across the Data job market.
+          </p>
+        </div>
+
+        <div class="card-small">
+          <h3>Interactive Map</h3>
+          <p>
+            A fully custom D3.js interface enables users to explore thousands of
+            offers through an interactive map: zoom, filtering, cluster focus,
+            and detailed job panels provide a new way to read the job ecosystem.
+          </p>
+        </div>
+
+        <div class="card-small">
+          <h3>Automated Pipeline</h3>
+          <p>
+            The platform integrates a recurring scraper, automated column
+            generation (skills, tools, soft skills, hybrid policy, visa), and a
+            reproducible analysis pipeline — turning the project into a living,
+            updating system.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="graph">
+      <h2>Visualization — Job Offers by Company</h2>
+      <div id="bubbleChart"></div>
+      <div style="text-align: center; margin-top: 1.5rem">
+        <a href="/index" class="hero-btn"> Explore More Visualizations </a>
+      </div>
+    </section>
+
+    <section id="perspectives">
+      <h2>Perspectives</h2>
+
+      <div class="grid-small">
+        <div class="card-small">
+          <h3>Data Expansion</h3>
+          <p>Fill missing months, extend dataset.</p>
+        </div>
+
+        <div class="card-small">
+          <h3>Global Map</h3>
+          <p>Add more countries and regions.</p>
+        </div>
+
+        <div class="card-small">
+          <h3>Better Embeddings</h3>
+          <p>Improve semantic quality of topics.</p>
+        </div>
+
+        <div class="card-small">
+          <h3>Dataset Download</h3>
+          <p>Allow exporting all job offers.</p>
+        </div>
+
+        <div class="card-small">
+          <h3>Skill Forecasting</h3>
+          <p>Predict future trends in demand.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact">
+      <h2>Contact</h2>
+      <p>
+        Created by <strong>Safia Lamri</strong> — CPES Data Science & Culture<br />
+        📧
+        <a href="mailto:safia.lamri@example.com" style="color: cyan"
+          >safia.lamri@psl.eu</a
+        >
+      </p>
+      <p>
+        You can also visit my personal website to explore other projects and
+        research work:<br />
+        🌐
+        <a
+          href="https://safia1602.github.io/Safia-LAMRI--site-perso/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="contact-link"
+        >
+          Click
+        </a>
+        <a class="cta-button cta-download" href="/download/stats">
+          Download dataset (CSV)
+        </a>
+      </p>
+    </section>
+
+    <button id="backToTop" aria-label="Back to top">↑</button>
+
+    <footer>© 2025 Data Job Analysis | Designed by Safia Lamri</footer>
+    <div class="cursor"></div>
+    <script src="../static/script.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+  </body>
+</html>

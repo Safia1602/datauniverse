@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Market Intelligence Platform</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      /* 1. THEME & VARIABLES */
+      :root {
+        --bg-dark: #050505;
+        --bg-panel: #111111;
+        --border: #333;
+        --text-main: #e0e0e0;
+        --text-muted: #888;
+        --accent: #00ffff;
+        --accent-dim: rgba(0, 255, 255, 0.1);
+        --danger: #ff4444;
+        --chart-bar: #38bdf8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 5%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(10px);
+        z-index: 1000;
+      }
+      nav ul {
+        list-style: none;
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+      }
+      nav ul li {
+        position: relative;
+      }
+      nav ul li a {
+        color: var(--text);
+        text-decoration: none;
+        transition: 0.3s;
+      }
+      nav ul li a:hover {
+        color: var(--accent);
+      }
+      nav ul li a.active {
+        color: #ff69b4;
+        text-shadow: 0 0 8px rgba(255, 105, 180, 0.6);
+      }
+      .dropdown-content {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: #111;
+        border-radius: 6px;
+        min-width: 160px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      }
+      .dropdown-content li {
+        display: block;
+        padding: 0.5rem 1rem;
+      }
+      .dropdown-content li a {
+        color: var(--gray);
+      }
+      .dropdown:hover .dropdown-content {
+        display: block;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-dark);
+        color: var(--text-main);
+        font-family: "Inter", system-ui, sans-serif;
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Scrollbars */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #000;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
+
+      /* 2. LAYOUT & NAV */
+      nav {
+        height: 55px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        background: rgba(0, 0, 0, 0.9);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .logo {
+        font-weight: 800;
+        font-size: 1.1rem;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .logo span {
+        color: var(--accent);
+      }
+
+      .app-grid {
+        display: grid;
+        grid-template-columns: 260px 1fr 380px; /* Panneau droite plus large pour les graphes */
+        height: calc(100vh - 55px);
+        overflow: hidden;
+      }
+
+      /* 3. SIDEBAR (FILTRES) */
+      .sidebar {
+        background: var(--bg-panel);
+        border-right: 1px solid var(--border);
+        padding: 15px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+      .filter-title {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .checkbox-list {
+        max-height: 120px;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid #222;
+        padding: 5px;
+        border-radius: 4px;
+      }
+      .cb-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        padding: 2px 0;
+        color: #ccc;
+      }
+      .cb-item:hover {
+        color: #fff;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        background: #000;
+        border: 1px solid var(--border);
+        color: #fff;
+        padding: 8px;
+        border-radius: 4px;
+      }
+
+      .btn-reset {
+        width: 100%;
+        padding: 8px;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: #888;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .btn-reset:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* 4. VIZ CONTAINER & CONTROLS */
+      .viz-area {
+        position: relative;
+        background: radial-gradient(circle at center, #111 0%, #000 100%);
+        overflow: hidden;
+      }
+      #scatter {
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+      }
+      #scatter:active {
+        cursor: grabbing;
+      }
+
+      /* Zoom Controls */
+      .map-controls {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        z-index: 10;
+      }
+      .control-btn {
+        width: 32px;
+        height: 32px;
+        background: rgba(0, 0, 0, 0.8);
+        border: 1px solid var(--border);
+        color: #fff;
+        font-size: 1.2rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: 0.2s;
+      }
+      .control-btn:hover {
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
+      }
+
+      /* Guide Button */
+      .guide-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        border-radius: 4px;
+        z-index: 10;
+        font-weight: 600;
+      }
+      .guide-btn:hover {
+        background: var(--accent);
+        color: #000;
+      }
+      .guide-download {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border: 1px solid var(--accent, #00ffff);
+        border-radius: 999px;
+        color: var(--accent, #00ffff);
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-decoration: none;
+        background: rgba(0, 0, 0, 0.6);
+        transition: all 0.25s ease;
+        white-space: nowrap;
+      }
+
+      .guide-download:hover {
+        background: var(--accent, #00ffff);
+        color: #000;
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+      }
+
+      /* Tooltip */
+      #tooltip {
+        position: absolute;
+        pointer-events: none;
+        opacity: 0;
+        background: rgba(0, 0, 0, 0.95);
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        z-index: 100;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        transform: translate(-50%, -120%);
+        transition: opacity 0.1s;
+      }
+
+      /* 5. RIGHT PANEL (ANALYTICS) */
+      .panel-right {
+        background: var(--bg-panel);
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+      .panel-header {
+        padding: 15px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .panel-title {
+        font-weight: 700;
+        color: #fff;
+        font-size: 0.9rem;
+      }
+      .panel-content {
+        padding: 15px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      /* Mini Charts */
+      .chart-container {
+        margin-bottom: 15px;
+      }
+      .chart-title {
+        font-size: 0.75rem;
+        color: #888;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+      }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 0.75rem;
+      }
+      .bar-label {
+        width: 90px;
+        color: #ccc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bar-track {
+        flex: 1;
+        height: 6px;
+        background: #222;
+        border-radius: 3px;
+        margin: 0 8px;
+        position: relative;
+      }
+      .bar-fill {
+        height: 100%;
+        background: var(--chart-bar);
+        border-radius: 3px;
+        transition: width 0.5s;
+      }
+      .bar-val {
+        width: 30px;
+        text-align: right;
+        color: #666;
+        font-size: 0.7rem;
+      }
+
+      .empty-state {
+        text-align: center;
+        color: #555;
+        margin-top: 40px;
+        font-style: italic;
+      }
+
+      /*  6. MODAL & ERROR STATES */
+      .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        z-index: 2000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #333;
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 1000;
+        display: none;
+        justify-content: center;
+        align-items: center;
+      }
+      .modal-backdrop.active {
+        display: flex;
+      }
+      .modal-box {
+        background: #111;
+        border: 1px solid var(--border);
+        width: 80%;
+        max-width: 900px;
+        max-height: 80vh;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+      }
+      .modal-scroll {
+        overflow-y: auto;
+        padding: 20px;
+      }
+
+      /* Table styles */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+      th {
+        text-align: left;
+        padding: 10px;
+        border-bottom: 1px solid var(--border);
+        color: #888;
+        position: sticky;
+        top: 0;
+        background: #111;
+      }
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #222;
+      }
+      tr:hover td {
+        background: #1a1a1a;
+        cursor: pointer;
+        color: #fff;
+      }
+
+      /* Responsive */
+      @media (max-width: 1100px) {
+        .app-grid {
+          grid-template-columns: 1fr;
+          overflow-y: auto;
+          height: auto;
+        }
+        .viz-area {
+          height: 500px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loader" class="loading-overlay">
+      <div class="spinner"></div>
+      <div style="margin-top: 15px; color: #666; font-size: 0.9rem">
+        Initializing Data Engine...
+      </div>
+    </div>
+
+    <nav>
+      <a href="/startup" class="logo">Data<span>Universe</span></a>
+
+      <ul class="menu">
+        <li><a href="/" class="active">The Observatory</a></li>
+
+        <li class="dropdown">
+          <a href="/startup#project" class="dropdown-toggle">Project ▾</a>
+          <ul class="dropdown-content">
+            <li><a href="/explanation">Explanation</a></li>
+            <li><a href="/startup#objective">Objective</a></li>
+            <li><a href="/startup#motivation">Motivation</a></li>
+            <li><a href="/startup#tasks">Main Tasks</a></li>
+            <li><hr class="dropdown-divider" /></li>
+            <li class="dropdown-header">Results</li>
+            <li><a href="/startup#expected">Expected Results</a></li>
+          </ul>
+        </li>
+
+        <li><a href="/index">The Big Picture</a></li>
+        <li><a href="/explorateur">The Job Explorer</a></li>
+        <li><a href="/tendances">The Hidden Trends</a></li>
+        <li><a href="/startup#contact">Contact</a></li>
+      </ul>
+      <a
+        href="/static/DataUniverse_Guide.pdf"
+        class="guide-download"
+        target="_blank"
+      >
+        ⓘ Project Guide (PDF)
+      </a>
+    </nav>
+
+    <div class="app-grid">
+      <aside class="sidebar">
+        <div class="filter-title">Search</div>
+        <input
+          type="text"
+          id="search-input"
+          placeholder="e.g. Data Scientist, Python..."
+        />
+
+        <div class="filter-title" style="margin-top: 20px">Cluster / Topic</div>
+        <div id="list-clusters" class="checkbox-list"></div>
+
+        <div class="filter-title" style="margin-top: 20px">Country</div>
+        <div id="list-countries" class="checkbox-list"></div>
+
+        <div class="filter-title" style="margin-top: 20px">Seniority</div>
+        <div id="list-seniority" class="checkbox-list"></div>
+
+        <button id="btn-reset" class="btn-reset" style="margin-top: auto">
+          Reset View
+        </button>
+        <div
+          id="total-count"
+          style="margin-top: 12px; color: #666; font-size: 0.8rem"
+        >
+          –
+        </div>
+      </aside>
+
+      <main class="viz-area">
+        <svg id="scatter"></svg>
+        <div id="tooltip"></div>
+
+        <button id="btn-guide" class="guide-btn">Clusters Guide</button>
+
+        <div class="map-controls">
+          <div class="control-btn" id="zoom-in" title="Zoom In">+</div>
+          <div class="control-btn" id="zoom-out" title="Zoom Out">-</div>
+          <div class="control-btn" id="zoom-reset" title="Reset Map">⟲</div>
+        </div>
+      </main>
+
+      <aside class="panel-right">
+        <div class="panel-header">
+          <span class="panel-title">Analytics Dashboard</span>
+          <button
+            id="clear-selection"
+            style="
+              background: none;
+              border: none;
+              color: #666;
+              cursor: pointer;
+              font-size: 0.75rem;
+            "
+          >
+            Clear
+          </button>
+        </div>
+
+        <div id="dashboard-content" class="panel-content">
+          <div class="empty-state">
+            <p>
+              Select a Cluster or a Job on the map to see detailed analytics.
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div id="modal-guide" class="modal-backdrop">
+      <div class="modal-box">
+        <div class="panel-header">
+          <span class="panel-title">Cluster Definitions</span>
+          <button
+            id="close-modal"
+            style="
+              background: none;
+              border: none;
+              color: #fff;
+              font-size: 1.2rem;
+              cursor: pointer;
+            "
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Topic Name</th>
+                <th>Top Skills (Context)</th>
+                <th>Volume</th>
+              </tr>
+            </thead>
+            <tbody id="table-clusters"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // CONFIG & STATE
+      const CSV_PATH = "/api/d3-data";
+
+      let state = {
+        data: [],
+        filtered: [],
+        highlightedCluster: null,
+        selectedJob: null,
+        width: 0,
+        height: 0,
+        transform: d3.zoomIdentity,
+      };
+
+      const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+
+      // D3 Selections
+      const svg = d3.select("#scatter");
+      const g = svg.append("g");
+      const tooltip = d3.select("#tooltip");
+
+      // Scales
+      let xScale = d3.scaleLinear();
+      let yScale = d3.scaleLinear();
+      let colorScale = d3.scaleOrdinal(d3.schemeTableau10);
+      let zoomBehavior;
+
+      // 1. INITIALIZATION
+      function toArr(x) {
+        if (!x) return [];
+        if (Array.isArray(x))
+          return x.map((v) => String(v).trim()).filter(Boolean);
+        return String(x)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+
+      async function init() {
+        try {
+          const raw = await fetch(CSV_PATH).then((res) => res.json());
+
+          // Process Data
+          state.data = raw
+            .map((d, i) => ({
+              id: d.id != null ? +d.id : i,
+
+              title: d.title || "Unknown Title",
+              company: d.company || "Unknown Company",
+              country: d.country || "Unknown",
+              level: d.seniority_level || d.experience_level || "Not Specified",
+
+              cluster: +d.topic_filtered,
+              clusterName: d.topic_name || `Cluster ${d.topic_filtered}`,
+
+              x: +d.x_umap,
+              y: +d.y_umap,
+
+              // 👇 AJOUT ICI
+              date: d.date_posted
+                ? new Date(d.date_posted)
+                : d.scraped_at
+                ? new Date(d.scraped_at)
+                : null,
+
+              salary: d.salary_value ? +d.salary_value : null,
+              currency: d.salary_currency || "$",
+
+              skills: toArr(d.skills_tech || d.topic_keywords || ""),
+              softSkills: toArr(d.soft_skills || ""),
+              domains: toArr(d.domains || ""),
+              desc: d.description || "",
+            }))
+            .filter((d) => !isNaN(d.x) && !isNaN(d.y) && d.date);
+
+          state.data = sampleOnePerDayPerCompany(state.data);
+
+          state.filtered = [...state.data];
+
+          // UI Setup
+          setupDimensions();
+          setupScales();
+          setupZoom();
+          setupFilters();
+          renderMap();
+
+          // Hide Loader
+          document.getElementById("loader").style.display = "none";
+          updateTotalCount();
+        } catch (error) {
+          console.error(error);
+          document.getElementById("loader").innerHTML = `
+            <div style="color:#ff4444; text-align:center;">
+              <h3>Error Loading Data</h3>
+              <p>Could not load ${CSV_PATH}.<br>Check console for details.</p>
+            </div>`;
+        }
+      }
+
+      function setupDimensions() {
+        const container = document.querySelector(".viz-area");
+        state.width = container.clientWidth;
+        state.height = container.clientHeight;
+        svg.attr("width", state.width).attr("height", state.height);
+      }
+
+      function setupScales() {
+        const xExt = d3.extent(state.data, (d) => d.x);
+        const yExt = d3.extent(state.data, (d) => d.y);
+        const padX = (xExt[1] - xExt[0]) * 0.05;
+        const padY = (yExt[1] - yExt[0]) * 0.05;
+
+        xScale
+          .domain([xExt[0] - padX, xExt[1] + padX])
+          .range([margin.left, state.width - margin.right]);
+        yScale
+          .domain([yExt[0] - padY, yExt[1] + padY])
+          .range([state.height - margin.bottom, margin.top]);
+      }
+
+      // 2. ZOOM & NAVIGATION
+      function setupZoom() {
+        zoomBehavior = d3
+          .zoom()
+          .scaleExtent([0.5, 8])
+          .on("zoom", (e) => {
+            state.transform = e.transform;
+            g.attr("transform", e.transform);
+          });
+
+        svg.call(zoomBehavior).on("dblclick.zoom", null); // Disable double click zoom
+
+        // Button Listeners
+        d3.select("#zoom-in").on("click", () => {
+          svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.5);
+        });
+        d3.select("#zoom-out").on("click", () => {
+          svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.66);
+        });
+        d3.select("#zoom-reset").on("click", () => {
+          svg
+            .transition()
+            .duration(750)
+            .call(zoomBehavior.transform, d3.zoomIdentity);
+        });
+      }
+      // 3. RENDERING MAP
+
+      function renderMap() {
+        const circles = g.selectAll("circle").data(state.filtered, (d) => d.id);
+
+        circles.exit().remove();
+
+        const enter = circles
+          .enter()
+          .append("circle")
+          .attr("r", 3.5)
+          .attr("stroke-width", 0.5)
+          .attr("stroke", "#000")
+          .attr("cursor", "pointer");
+
+        circles
+          .merge(enter)
+          .attr("cx", (d) => xScale(d.x))
+          .attr("cy", (d) => yScale(d.y))
+          .attr("fill", (d) => colorScale(d.cluster))
+          .attr("opacity", (d) => {
+            if (
+              state.highlightedCluster !== null &&
+              d.cluster !== state.highlightedCluster
+            )
+              return 0.1;
+            return 0.8;
+          })
+          .on("mouseover", (e, d) => {
+            tooltip
+              .style("opacity", 1)
+              .style("left", e.pageX + "px")
+              .style("top", e.pageY + "px")
+              .html(`<strong>${d.title}</strong><br>${d.company}`);
+            d3.select(e.target).attr("r", 6).attr("stroke", "#fff");
+          })
+          .on("mouseout", (e, d) => {
+            tooltip.style("opacity", 0);
+            d3.select(e.target).attr("r", 3.5).attr("stroke", "#000");
+          })
+          .on("click", (e, d) => {
+            e.stopPropagation();
+            selectCluster(d.cluster);
+            renderDashboard(d.cluster, d); // Pass specific job if clicked
+          });
+      }
+
+      // 4. DASHBOARD & ANALYTICS (GRAPHS)
+
+      function selectCluster(clusterId) {
+        state.highlightedCluster = clusterId;
+        renderMap();
+      }
+
+      function renderDashboard(clusterId, specificJob = null) {
+        const container = document.getElementById("dashboard-content");
+        container.innerHTML = "";
+
+        // 1. filters the data for this cluster
+        const clusterData = state.data.filter((d) => d.cluster === clusterId);
+        const clusterName = clusterData[0]?.clusterName || "Unknown";
+
+        // --- CALCUL KPI ---
+        const salaries = clusterData
+          .filter((d) => d.salary)
+          .map((d) => d.salary);
+        let salaryHtml = "";
+        if (salaries.length > 0) {
+          const avgSalary = Math.round(
+            salaries.reduce((a, b) => a + b, 0) / salaries.length
+          );
+          // Format(ex: 120000 -> 120k)
+          const fmtSalary =
+            avgSalary > 1000 ? (avgSalary / 1000).toFixed(0) + "k" : avgSalary;
+
+          salaryHtml = `
+      <div style="background:rgba(0,255,255,0.1); border:1px solid var(--accent); padding:10px; border-radius:6px; text-align:center; margin-bottom:15px;">
+        <div style="font-size:0.75rem; color:var(--accent); text-transform:uppercase;">Avg. Salary</div>
+        <div style="font-size:1.5rem; font-weight:bold; color:#fff;">${fmtSalary} <span style="font-size:0.9rem">${clusterData[0].currency}</span></div>
+        <div style="font-size:0.7rem; color:#888;">Based on ${salaries.length} reports</div>
+      </div>
+    `;
+        }
+
+        // 2. Header Info + KPI Salary
+        const infoDiv = document.createElement("div");
+        infoDiv.innerHTML = `
+    <h2 style="margin:0; color:${colorScale(
+      clusterId
+    )}">Cluster ${clusterId}</h2>
+    <div style="font-size:0.9rem; color:#fff; margin-bottom:10px;">${clusterName}</div>
+    ${salaryHtml}
+    <div style="font-size:0.8rem; color:#888; margin-bottom:20px; border-bottom:1px solid #333; padding-bottom:10px;">
+      Total Volume: <strong style="color:#fff">${
+        clusterData.length
+      }</strong> jobs found.
+    </div>
+  `;
+        container.appendChild(infoDiv);
+
+        // 3. Specific Job Card (if any)
+        if (specificJob) {
+          const jobCard = document.createElement("div");
+          jobCard.style.cssText =
+            "background:#222; padding:12px; border-radius:6px; border-left:3px solid #fff; margin-bottom:20px;";
+          jobCard.innerHTML = `
+          <div style="color:#fff; font-weight:bold;">${specificJob.title}</div>
+          <div style="color:#ccc; font-size:0.85rem;">${
+            specificJob.company
+          }</div>
+          <div style="color:#888; font-size:0.8rem; margin-top:4px;">📍 ${
+            specificJob.country
+          }</div>
+          ${
+            specificJob.salary
+              ? `<div style="color:#4caf50; font-size:0.8rem;">💰 ${specificJob.salary.toLocaleString()} ${
+                  specificJob.currency
+                }</div>`
+              : ""
+          }
+      `;
+          container.appendChild(jobCard);
+        }
+
+        // 4. Charts
+
+        // A. Top Business Domains
+        const allDomains = clusterData.flatMap((d) => d.domains);
+        const domainCounts = countFreqArray(allDomains);
+        createBarChart(
+          container,
+          "Top Business Domains",
+          domainCounts.slice(0, 5),
+          "#a78bfa"
+        );
+
+        // B. Top Technical Skills
+        const allTechSkills = clusterData.flatMap((d) => d.skills);
+        const techCounts = countFreqArray(allTechSkills);
+        createBarChart(
+          container,
+          "Top Tech Stack",
+          techCounts.slice(0, 8),
+          "#38bdf8"
+        );
+
+        // C. Soft Skills
+        const allSoftSkills = clusterData.flatMap((d) => d.softSkills);
+        const softCounts = countFreqArray(allSoftSkills);
+        if (softCounts.length > 0) {
+          createBarChart(
+            container,
+            "Soft Skills Required",
+            softCounts.slice(0, 5),
+            "#34d399"
+          );
+        }
+
+        // D. Seniority Levels
+        const levels = countFreq(clusterData, "level");
+        createBarChart(
+          container,
+          "Seniority Distribution",
+          levels.slice(0, 4),
+          "#fbbf24"
+        );
+
+        // E. Top Locations
+        const countries = countFreq(clusterData, "country");
+        createBarChart(
+          container,
+          "Top Locations",
+          countries.slice(0, 5),
+          "#f87171"
+        );
+      }
+
+      function createBarChart(parent, title, data, color = "#38bdf8") {
+        if (!data.length) return;
+        const wrapper = document.createElement("div");
+        wrapper.className = "chart-container";
+
+        const maxVal = Math.max(...data.map((d) => d.count));
+
+        let html = `<div class="chart-title">${title}</div>`;
+        data.forEach((d) => {
+          const pct = (d.count / maxVal) * 100;
+          html += `
+        <div class="bar-row">
+          <div class="bar-label" title="${d.key}">${d.key}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${pct}%; background:${color};"></div>
+          </div>
+          <div class="bar-val">${d.count}</div>
+        </div>
+      `;
+        });
+        wrapper.innerHTML = html;
+        parent.appendChild(wrapper);
+      }
+
+      // Helpers for Stats
+      function countFreq(arr, key) {
+        const map = {};
+        arr.forEach((i) => {
+          const v = i[key];
+          map[v] = (map[v] || 0) + 1;
+        });
+        return Object.entries(map)
+          .map(([k, v]) => ({ key: k, count: v }))
+          .sort((a, b) => b.count - a.count);
+      }
+      function countFreqArray(arr) {
+        const map = {};
+        arr.forEach((v) => {
+          map[v] = (map[v] || 0) + 1;
+        });
+        return Object.entries(map)
+          .map(([k, v]) => ({ key: k, count: v }))
+          .sort((a, b) => b.count - a.count);
+      }
+
+      // 5. FILTERS UI
+      function setupFilters() {
+        const clusters = [...new Set(state.data.map((d) => d.cluster))].sort(
+          (a, b) => a - b
+        );
+        const countries = countFreq(state.data, "country")
+          .map((d) => d.key)
+          .sort();
+        const levels = countFreq(state.data, "level")
+          .map((d) => d.key)
+          .sort();
+
+        createCheckboxes("list-clusters", clusters, "cluster");
+        createCheckboxes("list-countries", countries, "country");
+        createCheckboxes("list-seniority", levels, "level");
+
+        // Search Input
+        d3.select("#search-input").on("input", function () {
+          applyFilters();
+        });
+
+        // Reset Button
+        d3.select("#btn-reset").on("click", () => {
+          document
+            .querySelectorAll('input[type="checkbox"]')
+            .forEach((c) => (c.checked = false));
+          document.getElementById("search-input").value = "";
+          state.highlightedCluster = null;
+          state.selectedJob = null;
+          applyFilters();
+          document.getElementById(
+            "dashboard-content"
+          ).innerHTML = `<div class="empty-state"><p>Select a Cluster or a Job on the map to see detailed analytics.</p></div>`;
+          // Reset zoom
+          svg
+            .transition()
+            .duration(750)
+            .call(zoomBehavior.transform, d3.zoomIdentity);
+        });
+
+        // Clear Selection Button (Right Panel)
+        d3.select("#clear-selection").on("click", () => {
+          state.highlightedCluster = null;
+          renderMap();
+          document.getElementById(
+            "dashboard-content"
+          ).innerHTML = `<div class="empty-state"><p>Select a Cluster or a Job on the map to see detailed analytics.</p></div>`;
+        });
+      }
+
+      function createCheckboxes(containerId, items, dataKey) {
+        const container = document.getElementById(containerId);
+        items.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "cb-item";
+          let label = item;
+          let val = item;
+          if (dataKey === "cluster") {
+            const cObj = state.data.find((d) => d.cluster === item);
+            label = `${item} - ${cObj?.clusterName || ""}`;
+          }
+
+          div.innerHTML = `<input type="checkbox" value="${val}" data-key="${dataKey}"> <span>${label}</span>`;
+          container.appendChild(div);
+        });
+
+        // Add listener
+        container.addEventListener("change", applyFilters);
+      }
+
+      function applyFilters() {
+        const getChecked = (key) =>
+          Array.from(
+            document.querySelectorAll(`input[data-key="${key}"]:checked`)
+          ).map((c) => c.value);
+
+        const fClusters = getChecked("cluster").map(Number);
+        const fCountries = getChecked("country");
+        const fLevels = getChecked("level");
+        const searchTxt = document
+          .getElementById("search-input")
+          .value.toLowerCase();
+
+        state.filtered = state.data.filter((d) => {
+          if (fClusters.length && !fClusters.includes(d.cluster)) return false;
+          if (fCountries.length && !fCountries.includes(d.country))
+            return false;
+          if (fLevels.length && !fLevels.includes(d.level)) return false;
+          if (
+            searchTxt &&
+            !(
+              d.title.toLowerCase().includes(searchTxt) ||
+              d.company.toLowerCase().includes(searchTxt)
+            )
+          )
+            return false;
+          return true;
+        });
+
+        renderMap();
+        updateTotalCount();
+      }
+
+      function updateTotalCount() {
+        document.getElementById(
+          "total-count"
+        ).innerText = `${state.filtered.length} jobs visible (sampled: 1/day/company)`;
+      }
+
+      // 6. MODAL GUIDE LOGIC
+      const modal = document.getElementById("modal-guide");
+      const tbody = document.getElementById("table-clusters");
+
+      d3.select("#btn-guide").on("click", () => {
+        modal.classList.add("active");
+        if (tbody.innerHTML === "") generateGuideTable();
+      });
+      d3.select("#close-modal").on("click", () =>
+        modal.classList.remove("active")
+      );
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) modal.classList.remove("active");
+      });
+
+      function generateGuideTable() {
+        const clusters = [...new Set(state.data.map((d) => d.cluster))].sort(
+          (a, b) => a - b
+        );
+        let html = "";
+        clusters.forEach((cid) => {
+          const subset = state.data.filter((d) => d.cluster === cid);
+          const topSkills = countFreqArray(subset.flatMap((d) => d.skills))
+            .slice(0, 4)
+            .map((s) => s.key)
+            .join(", ");
+          html += `
+               <tr onclick="selectFromGuide(${cid})">
+                 <td><span style="color:${colorScale(cid)}">●</span> ${cid}</td>
+                 <td style="font-weight:bold; color:#fff;">${
+                   subset[0].clusterName
+                 }</td>
+                 <td style="color:#aaa;">${topSkills}</td>
+                 <td>${subset.length}</td>
+               </tr>
+             `;
+        });
+        tbody.innerHTML = html;
+      }
+
+      window.selectFromGuide = function (cid) {
+        modal.classList.remove("active");
+        selectCluster(cid);
+        renderDashboard(cid);
+        state.highlightedCluster = cid;
+        renderMap();
+      };
+
+      // Handle Resize
+      window.addEventListener("resize", () => {
+        setupDimensions();
+        setupScales();
+        renderMap();
+      });
+      function sampleOnePerDayPerCompany(data) {
+        const map = new Map();
+        const dayFormat = d3.timeFormat("%Y-%m-%d");
+
+        data.forEach((d) => {
+          if (!d.company || !d.date) return;
+
+          const day = dayFormat(d.date);
+          const key = `${d.company}__${day}`;
+
+          if (!map.has(key) || d.date > map.get(key).date) {
+            map.set(key, d);
+          }
+        });
+
+        return Array.from(map.values());
+      }
+
+      init();
+    </script>
+  </body>
+</html>

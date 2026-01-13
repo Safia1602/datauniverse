@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Job Analysis | The Big Picture</title>
+    <link rel="stylesheet" href="../static/style.css" />
+  </head>
+  <body>
+    <div class="cursor"></div>
+
+<nav>
+  <a href="/startup" class="logo">Data<span>Universe</span></a>
+
+  <ul class="menu">
+    <li><a href="/" class="active">The Observatory</a></li>
+
+    <li class="dropdown">
+      <a href="/startup#project" class="dropdown-toggle">Project ▾</a>
+      <ul class="dropdown-content">
+        <li><a href="/explanation">Explanation</a></li>
+        <li><a href="/startup#objective">Objective</a></li>
+        <li><a href="/startup#motivation">Motivation</a></li>
+        <li><a href="/startup#tasks">Main Tasks</a></li>
+        <li><hr class="dropdown-divider" /></li>
+        <li class="dropdown-header">Results</li>
+        <li><a href="/startup#expected">Expected Results</a></li>
+      </ul>
+    </li>
+
+    <li><a href="/index">The Big Picture</a></li>
+    <li><a href="/explorateur">The Job Explorer</a></li>
+    <li><a href="/tendances">The Hidden Trends</a></li>
+    <li><a href="/startup#contact">Contact</a></li>
+  </ul>
+  <a href="/static/DataUniverse_Guide.pdf" class="guide-download" target="_blank">
+  ⓘ Project Guide
+</a>
+
+</nav>
+
+
+
+    <header class="hero-banner-simple">
+      <h1>The Big Picture</h1>
+      <p class="subtitle">A high-level overview of the Data job market.</p>
+    </header>
+
+    <main>
+      <section id="kpis" class="reveal">
+        <h2>The Lay of the Land</h2>
+        <p class="story-intro">
+          Before diving in, let's get a 30,000-foot view. We analyzed a batch of
+          recent job postings to see who's hiring and what the general landscape
+          looks like.
+        </p>
+        <div class="kpi-container">
+          <div class="card kpi-card">
+            <h3>Jobs Analyzed</h3>
+            <span id="kpi-total-value">...</span>
+          </div>
+          <div class="card kpi-card">
+            <h3>Unique Companies</h3>
+            <span id="kpi-total-companies">...</span>
+          </div>
+          <div class="card kpi-card">
+            <h3>Median Annual Salary (USD)</h3>
+            <span id="kpi-median-salary">...</span>
+          </div>
+        </div>
+      </section>
+      </section>
+
+    <section id="charts-who" class="reveal">
+        <h2>Who is Hiring & What For?</h2>
+        <p class="story-intro">
+            Let's dive deeper. Which companies are leading the hiring wave, and what specific roles are they looking to fill?
+        </p>
+        <div class="chart-container">
+            <div class="card chart-card large" id="card-titles">
+                <h3>Top 10 Job Titles</h3>
+                <div id="chart-titles"></div> 
+                <p class="chart-explanation">
+                    "Data Analyst" remains the most common gateway, but "Data Engineer" and "Data Scientist" roles are close behind.
+                </p>
+            </div>
+            
+            <div class="card chart-card" id="card-companies">
+                <h3>Top 10 Companies</h3>
+                <div id="chart-companies"></div> 
+                <p class="chart-explanation">
+                    Tech giants dominate, but we also see a strong presence from finance and consulting sectors.
+                </p>
+            </div>
+        </div>
+    </section>
+
+      <section id="charts-main" class="reveal">
+        <h2>The Core Toolkit & The Reward</h2>
+        <div class="chart-container">
+          <div class="card chart-card" id="tech-skills-card">
+            <h3>Top 10 Technical Skills</h3>
+            <div id="viz-tech-skills"></div>
+            <p class="chart-explanation">
+              First, what do you need to know? This is the "price of entry."
+              Unsurprisingly, SQL and Python are dominant, but look at the rise
+              of cloud (AWS, Azure) and visualization (Tableau).
+            </p>
+          </div>
+
+          <div class="card chart-card" id="salary-dist-card">
+            <h3>Annual Salary Distribution (USD)</h3>
+            <div id="viz-salary-dist"></div>
+            <p class="chart-explanation">
+              Now, let's talk money. This histogram shows the spread of annual
+              salaries. You can see a strong concentration in the $120k-$170k
+              range, but also a long tail of higher-paying opportunities.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="charts-secondary" class="reveal">
+        <h2>Who, What, and Where</h2>
+        <div class="chart-container">
+          <div class="card chart-card" id="tools-card">
+            <h3>Top 10 Tools</h3>
+            <div id="viz-tools"></div>
+            <p class="chart-explanation">
+              Beyond core skills, these are the specific *tools* companies
+              mention. Knowing Excel is a given, but proficiency in platforms
+              like Databricks or specific cloud services can be a huge
+              advantage.
+            </p>
+          </div>
+
+          <div class="card chart-card" id="geo-card">
+            <h3>Top 10 Countries</h3>
+            <div id="viz-geo"></div>
+            <p class="chart-explanation">
+              Where in the world are these jobs? While this dataset is heavily
+              focused on the United States, you can see the global nature of the
+              field.
+            </p>
+          </div>
+
+          <div class="card chart-card" id="seniority-card">
+            <h3>Seniority Levels</h3>
+            <div id="viz-seniority"></div>
+            <p class="chart-explanation">
+              What experience level are companies looking for? This chart shows
+              the breakdown. "Not specified" is common, but among those that
+              are, Senior and Mid-level roles lead the pack.
+            </p>
+          </div>
+
+          <div class="card chart-card" id="domains-card">
+            <h3>Top Domains</h3>
+            <div id="viz-domains"></div>
+            <p class="chart-explanation">
+              What *kind* of companies are hiring? This shows the industries,
+              from tech and finance to healthcare and marketing. Data skills are
+              valuable everywhere.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="charts-policy" class="reveal">
+        <h2>The "New Normal": Workplace Policies</h2>
+        <div class="card chart-card" id="policy-card">
+          <div class="small-pie-container">
+            <div class="small-pie">
+              <h4>Hybrid Policy</h4>
+              <div id="viz-hybrid"></div>
+              <p class="chart-explanation">
+                Is remote work the standard? This shows the split between jobs
+                that explicitly mention a hybrid or remote policy vs. those that
+                don't.
+              </p>
+            </div>
+            <div class="small-pie">
+              <h4>Visa Sponsorship</h4>
+              <div id="viz-visa"></div>
+              <p class="chart-explanation">
+                For international talent, this is crucial. A small but
+                significant fraction of companies explicitly offer visa
+                sponsorship.
+              </p>
+            </div>
+            <div class="small-pie">
+              <h4>Job Source</h4>
+              <div id="viz-source"></div>
+              <p class="chart-explanation">
+                Where did we find these listings? This shows the overwhelming
+                dominance of LinkedIn as the primary source for this data.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <button id="backToTop" aria-label="Back to top">↑</button>
+
+    <footer>© 2025 Data Job Analysis | Designed by Safia Lamri</footer>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="../static/script.js"></script>
+    <script src="../static/page1-dashboard.js"></script>
+
+    <div id="chart-modal-backdrop" class="chart-modal-backdrop hidden">
+      <div id="chart-modal-content" class="card">
+        <span id="chart-modal-close">&times;</span>
+        <h3 id="chart-modal-title">Titre du Graphique</h3>
+        <div id="chart-modal-container">
+          </div>
+      </div>
+    </div>
+    </body>
+</html>
+
+  </body>
+</html>

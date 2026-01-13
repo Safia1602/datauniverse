@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Data Job Observatory</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- D3 + TopoJSON -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson-client@3"></script>
+    <script src="../static/observatoire.js"></script>
+
+    <style>
+      :root {
+        --bg-main: #0a0a0a;
+        --bg-secondary: #111111;
+        --panel: #0f172a;
+        --card-bg: #161616;
+        --text: #e0e0e0;
+        --gray: #888888;
+        --muted: #9ca3af;
+        --accent: #00ffff;
+        --accent-soft: rgba(0, 255, 255, 0.15);
+        --accent-2: #a855f7;
+        --border: #333;
+        --danger: #f97373;
+        --success: #22c55e;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Inter", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #111827 0, #020617 55%);
+        color: var(--text);
+        line-height: 1.6;
+        cursor: none;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      /* NAVBAR */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 5%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(10px);
+        z-index: 1000;
+      }
+
+      .logo {
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .logo span {
+        color: white;
+      }
+
+      nav ul {
+        list-style: none;
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+      }
+      nav ul li {
+        position: relative;
+      }
+      nav ul li a {
+        color: var(--text);
+        text-decoration: none;
+        transition: 0.3s;
+      }
+      nav ul li a:hover {
+        color: var(--accent);
+      }
+      nav ul li a.active {
+        color: #ff69b4;
+        text-shadow: 0 0 8px rgba(255, 105, 180, 0.6);
+      }
+
+      .dropdown-content {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: #111;
+        border-radius: 6px;
+        min-width: 160px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      }
+      .dropdown-content li {
+        display: block;
+        padding: 0.5rem 1rem;
+      }
+      .dropdown-content li a {
+        color: var(--gray);
+      }
+      .dropdown:hover .dropdown-content {
+        display: block;
+      }
+
+      .guide-download {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border: 1px solid var(--accent, #00ffff);
+        border-radius: 999px;
+        color: var(--accent, #00ffff);
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-decoration: none;
+        background: rgba(0, 0, 0, 0.6);
+        transition: all 0.25s ease;
+        white-space: nowrap;
+      }
+
+      .guide-download:hover {
+        background: var(--accent, #00ffff);
+        color: #000;
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+      }
+
+      /* BACK TO TOP */
+      #backToTop {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        background: var(--accent);
+        color: #0a0a0a;
+        border: none;
+        border-radius: 50%;
+        width: 55px;
+        height: 55px;
+        font-size: 1.6rem;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        display: none;
+        z-index: 1000;
+        transition: all 0.3s ease;
+      }
+      #backToTop:hover {
+        background: #00ffff;
+        box-shadow: 0 0 25px rgba(0, 255, 255, 0.7);
+        transform: scale(1.15);
+      }
+
+      /* CURSEUR PERSO */
+      .cursor {
+        width: 25px;
+        height: 25px;
+        border: 2px solid var(--accent);
+        border-radius: 50%;
+        position: fixed;
+        left: 0;
+        top: 0;
+        transform: translate(-50%, -50%);
+        transition: transform 0.08s ease;
+        z-index: 9999;
+        pointer-events: none;
+      }
+
+      /* CONTAINER PRINCIPAL */
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 6rem 20px 40px; /* 6rem pour la nav */
+      }
+
+      /* HERO */
+      .hero-banner-simple {
+        padding: 2rem 0 2rem 0;
+        text-align: left;
+      }
+      .hero-banner-simple h1 {
+        font-size: 2.6rem;
+        color: var(--accent);
+        margin-bottom: 0.5rem;
+      }
+      .hero-banner-simple .subtitle {
+        font-size: 1.1rem;
+        color: var(--muted);
+        max-width: 700px;
+      }
+
+      /* KPIs */
+      .kpi-row {
+        margin-top: 1.5rem;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .kpi-card {
+        background: rgba(10, 10, 10, 0.9);
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        padding: 14px 16px;
+      }
+      .kpi-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+      .kpi-main {
+        font-size: 1.3rem;
+        font-weight: 600;
+      }
+      .kpi-delta {
+        font-size: 0.8rem;
+        margin-left: 4px;
+      }
+      .kpi-delta.positive {
+        color: var(--success);
+      }
+      .kpi-delta.negative {
+        color: var(--danger);
+      }
+
+      @media (max-width: 900px) {
+        .kpi-row {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      /* LAYOUT PRINCIPAL : sidebar filtres + graphs */
+      .observatory-layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 24px;
+        align-items: start;
+        margin-top: 2rem;
+      }
+      @media (max-width: 900px) {
+        .observatory-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* SIDEBAR FILTRES */
+      .filter-panel {
+        background: var(--bg-secondary);
+        padding: 18px 16px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        position: sticky;
+        top: 90px;
+        max-height: calc(100vh - 110px);
+        overflow-y: auto;
+      }
+      .filter-panel h2 {
+        color: var(--accent);
+        margin-bottom: 12px;
+        font-size: 1.4rem;
+      }
+      .filter-panel small {
+        color: var(--muted);
+        display: block;
+        margin-bottom: 16px;
+        font-size: 0.8rem;
+      }
+
+      .filter-group {
+        margin-bottom: 18px;
+      }
+      .filter-group label.main-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: var(--text);
+        font-size: 0.9rem;
+      }
+      .filter-group .helper {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      input[type="text"],
+      select {
+        width: 100%;
+        padding: 8px 10px;
+        background: #222;
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 999px;
+        font-size: 0.9rem;
+      }
+      input[type="text"]:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent-soft);
+      }
+
+      .salary-slider-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      input[type="range"] {
+        flex-grow: 1;
+        cursor: pointer;
+      }
+      #salary-value {
+        font-weight: bold;
+        color: var(--accent);
+        min-width: 60px;
+        text-align: right;
+        font-size: 0.85rem;
+      }
+
+      .toggle-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .toggle-chip {
+        flex: 1 1 48%;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #1b1b1b;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        padding: 4px 10px;
+        font-size: 0.8rem;
+      }
+      .toggle-chip input {
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+
+      .filter-list {
+        max-height: 150px;
+        overflow-y: auto;
+        background: #141414;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px;
+        font-size: 0.85rem;
+      }
+      .filter-item {
+        margin-bottom: 6px;
+      }
+      .filter-item label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        color: var(--muted);
+      }
+      .filter-item input[type="checkbox"] {
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .chip {
+        font-size: 0.78rem;
+        padding: 4px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #1b1b1b;
+        cursor: pointer;
+        user-select: none;
+        color: var(--muted);
+      }
+      .chip.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      #reset-filters {
+        width: 100%;
+        padding: 10px;
+        background: #222;
+        color: var(--text);
+        border: none;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-top: 4px;
+        transition: background 0.3s;
+      }
+      #reset-filters:hover {
+        background: #333;
+      }
+
+      /* ZONE GRAPHIQUES */
+      .results-area-header {
+        margin-bottom: 10px;
+      }
+      .results-area-header h2 {
+        font-size: 1.5rem;
+        margin-bottom: 4px;
+      }
+      .results-area-header p {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .charts-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .chart-card {
+        background: rgba(10, 10, 10, 0.96);
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        padding: 14px 14px 10px;
+        min-height: 260px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        cursor: zoom-in;
+        transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+      }
+      .chart-card:hover {
+        border-color: var(--accent);
+        box-shadow: 0 0 18px rgba(0, 255, 255, 0.18);
+        transform: translateY(-2px);
+      }
+      .chart-card h3 {
+        font-size: 1rem;
+        margin-bottom: 2px;
+      }
+      .chart-subtitle {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .chart-inner {
+        position: relative;
+        width: 100%;
+        flex: 1;
+        min-height: 210px;
+      }
+      .chart-svg {
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+      .chart-tooltip {
+        position: absolute;
+        pointer-events: none;
+        background: rgba(15, 23, 42, 0.98);
+        color: var(--text);
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        padding: 6px 8px;
+        font-size: 0.75rem;
+        z-index: 10;
+        opacity: 0;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .legend-swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+      }
+
+      .axis path,
+      .axis line {
+        stroke: rgba(148, 163, 184, 0.3);
+      }
+      .axis text {
+        fill: var(--muted);
+        font-size: 10px;
+      }
+
+      .quadrant-label {
+        font-size: 0.7rem;
+        fill: var(--muted);
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      /* MODALE GRAPHIQUE */
+      #chart-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(6px);
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #chart-modal-content {
+        background: #111;
+        border-radius: 10px;
+        border: 1px solid var(--accent);
+        width: 90vw;
+        max-width: 1100px;
+        max-height: 90vh;
+        padding: 16px 18px 12px;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      }
+      #chart-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      #chart-modal-title {
+        font-size: 1rem;
+        font-weight: 600;
+      }
+      #chart-modal-close {
+        font-size: 1.8rem;
+        background: none;
+        border: none;
+        color: var(--gray);
+        cursor: pointer;
+        line-height: 1;
+      }
+      #chart-modal-close:hover {
+        color: var(--accent);
+      }
+      #chart-modal-body {
+        flex: 1;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+      }
+      #chart-modal-container {
+        flex: 1;
+        min-height: 380px;
+      }
+      #chart-modal-container svg {
+        width: 100% !important;
+        height: auto !important;
+      }
+      #chart-modal-description {
+        font-size: 0.83rem;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+      .cta-row {
+        margin-top: 40px;
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+      }
+
+      .cta-button {
+        background: #d81d8a;
+        padding: 12px 22px;
+        border-radius: 999px;
+        color: white;
+        border: none;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      .cta-button:hover {
+        background: #25e8eb;
+      }
+
+      /* FOOTER */
+      footer {
+        text-align: center;
+        padding: 2rem;
+        font-size: 0.9rem;
+        color: var(--gray);
+        border-top: 1px solid #222;
+        margin-top: 2rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="cursor"></div>
+
+    <nav>
+      <a href="/startup" class="logo">Data<span>Universe</span></a>
+
+      <ul class="menu">
+        <li><a href="/" class="active">The Observatory</a></li>
+
+        <li class="dropdown">
+          <a href="/startup#project" class="dropdown-toggle">Project ▾</a>
+          <ul class="dropdown-content">
+            <li><a href="/explanation">Explanation</a></li>
+            <li><a href="/startup#objective">Objective</a></li>
+            <li><a href="/startup#motivation">Motivation</a></li>
+            <li><a href="/startup#tasks">Main Tasks</a></li>
+            <li><hr class="dropdown-divider" /></li>
+            <li class="dropdown-header">Results</li>
+            <li><a href="/startup#expected">Expected Results</a></li>
+          </ul>
+        </li>
+
+        <li><a href="/index">The Big Picture</a></li>
+        <li><a href="/explorateur">The Job Explorer</a></li>
+        <li><a href="/tendances">The Hidden Trends</a></li>
+        <li><a href="/startup#contact">Contact</a></li>
+      </ul>
+      <a
+        href="/static/DataUniverse_Guide.pdf"
+        class="guide-download"
+        target="_blank"
+      >
+        ⓘ Project Guide
+      </a>
+    </nav>
+
+    <button id="backToTop">↑</button>
+
+    <div class="container">
+      <!-- HERO + KPIs -->
+      <header class="hero-banner-simple">
+        <h1>The Data Job Observatory</h1>
+        <p class="subtitle">
+          Follow how the data job market moves over time: roles, technologies,
+          soft skills, domains and how closely your profile matches the current
+          wave.
+        </p>
+
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">Total job offers (last 30 days)</div>
+            <div>
+              <span class="kpi-main" id="kpi-total-jobs">–</span>
+              <span class="kpi-delta" id="kpi-total-jobs-delta">…</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Hottest role</div>
+            <div class="kpi-main" id="kpi-hottest-role">–</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Tech in the spotlight</div>
+            <div class="kpi-main" id="kpi-hottest-tech">–</div>
+          </div>
+        </div>
+      </header>
+
+      <main class="observatory-layout">
+        <!-- FILTERS SIDEBAR -->
+        <aside class="filter-panel">
+          <h2>Filters</h2>
+          <small
+            >These filters drive all charts on the right. You can mix text,
+            skills, salary and country to see how the market reacts.</small
+          >
+
+          <div class="filter-group">
+            <label class="main-label" for="filter-text"
+              >Search (title / description)</label
+            >
+            <input
+              type="text"
+              id="filter-text"
+              placeholder="e.g. Data Analyst, Python, SQL..."
+            />
+          </div>
+
+          <div class="filter-group">
+            <label class="main-label"
+              >Min salary (annual): <span id="salary-value">$0k</span></label
+            >
+            <div class="salary-slider-container">
+              <span style="font-size: 0.8rem">$0</span>
+              <input
+                type="range"
+                id="filter-salary"
+                min="0"
+                max="300000"
+                step="10000"
+                value="0"
+              />
+              <span style="font-size: 0.8rem">$300k+</span>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="main-label" for="filter-date-range"
+              >Time window</label
+            >
+            <select id="filter-date-range">
+              <option value="all">All available</option>
+              <option value="30">Last 30 days</option>
+              <option value="60">Last 60 days</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="main-label">Job conditions</label>
+            <div class="toggle-row">
+              <div class="toggle-chip">
+                <input type="checkbox" id="filter-hybrid" />
+                <label for="filter-hybrid">Remote / Hybrid only</label>
+              </div>
+              <div class="toggle-chip">
+                <input type="checkbox" id="filter-visa" />
+                <label for="filter-visa">Visa sponsorship</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="main-label">Countries</label>
+            <p class="helper">Select one or more countries.</p>
+            <div id="filter-country" class="filter-list"></div>
+          </div>
+
+          <div class="filter-group">
+            <label class="main-label">Roles</label>
+            <p class="helper">Based on a normalized role classification.</p>
+            <div id="filter-role" class="filter-list"></div>
+          </div>
+
+          <div class="filter-group">
+            <label class="main-label">Core technical skills (AND)</label>
+            <p class="helper">
+              Click skills to select them. Jobs must contain all selected
+              skills.
+            </p>
+            <div id="filter-skills-chips" class="chip-row"></div>
+          </div>
+
+          <button id="reset-filters">Reset all filters</button>
+        </aside>
+
+        <!-- CHARTS AREA -->
+        <section>
+          <div class="results-area-header">
+            <h2>Live overview of your data job market</h2>
+            <p>
+              All charts below are computed directly from your scraped offers
+              and will update as you add new months and new scrapes.
+            </p>
+          </div>
+
+          <div class="charts-grid">
+            <!-- 1. JOB VOLUME OVER TIME -->
+            <article class="chart-card" data-chart="job-volume">
+              <h3>Job volume over time</h3>
+              <p class="chart-subtitle">
+                Monthly number of offers in the dataset (baseline) compared to
+                the currently filtered subset.
+              </p>
+              <div class="chart-inner" id="job-volume-container">
+                <svg class="chart-svg" id="job-volume-svg"></svg>
+              </div>
+            </article>
+
+            <!-- 2. ROLE DRIFT -->
+            <article class="chart-card" data-chart="role-drift">
+              <h3>Role Drift — how skill sets evolve</h3>
+              <p class="chart-subtitle">
+                For a given role, track how often key technical skills appear
+                month after month.
+              </p>
+              <div class="chart-inner" id="role-drift-container">
+                <svg class="chart-svg" id="role-drift-svg"></svg>
+                <div class="chart-tooltip" id="role-drift-tooltip"></div>
+              </div>
+              <div class="legend" id="role-drift-legend"></div>
+              <div
+                style="margin-top: 4px; font-size: 0.8rem; color: var(--muted)"
+              >
+                Role:
+                <select
+                  id="role-select"
+                  style="
+                    display: inline-block;
+                    width: auto;
+                    padding: 4px 8px;
+                    margin-left: 4px;
+                    font-size: 0.8rem;
+                  "
+                ></select>
+              </div>
+            </article>
+
+            <!-- 3. SOFT SKILLS DRIFT -->
+            <article class="chart-card" data-chart="soft-drift">
+              <h3>Soft skills dynamics</h3>
+              <p class="chart-subtitle">
+                Evolution of the most frequently mentioned soft skills in the
+                current filters over recent months.
+              </p>
+              <div class="chart-inner" id="soft-drift-container">
+                <svg class="chart-svg" id="soft-drift-svg"></svg>
+                <div class="chart-tooltip" id="soft-drift-tooltip"></div>
+              </div>
+              <div class="legend" id="soft-drift-legend"></div>
+            </article>
+
+            <!-- 5. MY MARKET WORTH -->
+            <article class="chart-card" data-chart="mmw">
+              <h3>My Market Worth — inside this dataset</h3>
+              <p class="chart-subtitle">
+                Based on your selected skills and years of experience, estimate
+                how many offers match you and their salary distribution.
+              </p>
+              <div style="font-size: 0.8rem; margin-bottom: 4px">
+                <label for="mmw-experience">Years of experience</label>
+                <select
+                  id="mmw-experience"
+                  style="
+                    display: inline-block;
+                    width: auto;
+                    padding: 4px 8px;
+                    margin-left: 6px;
+                    font-size: 0.8rem;
+                  "
+                >
+                  <option value="0">0–1 years</option>
+                  <option value="2">2–4 years</option>
+                  <option value="5">5+ years</option>
+                </select>
+              </div>
+              <div
+                id="mmw-skill-chips"
+                class="chip-row"
+                style="margin-bottom: 6px"
+              ></div>
+              <div class="chart-inner" id="mmw-container">
+                <svg class="chart-svg" id="mmw-svg"></svg>
+                <div class="chart-tooltip" id="mmw-tooltip"></div>
+              </div>
+              <div
+                id="mmw-output"
+                style="font-size: 0.8rem; color: var(--muted); margin-top: 4px"
+              >
+                Select some skills to see your estimated worth inside this
+                dataset.
+              </div>
+              <div
+                id="mmw-extra"
+                style="font-size: 0.76rem; color: var(--muted); margin-top: 4px"
+              ></div>
+            </article>
+
+            <!-- 6. WORLD MAP -->
+            <article class="chart-card" data-chart="worldmap">
+              <h3>Geographical distribution of offers</h3>
+              <p class="chart-subtitle">
+                Each circle represents how many job offers are associated with a
+                country in the current filters.
+              </p>
+              <div class="chart-inner" id="worldmap-container">
+                <svg class="chart-svg" id="worldmap-svg"></svg>
+                <div class="chart-tooltip" id="worldmap-tooltip"></div>
+              </div>
+            </article>
+            <div class="cta-row">
+              <button
+                class="cta-button"
+                onclick="window.location.href='/explorateur'"
+              >
+                Explore job explorer
+              </button>
+
+              <button
+                class="cta-button"
+                onclick="window.location.href='/index'"
+              >
+                Explore data landscape
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        DataUniverse – Data Job Observatory © 2025 – Developed by Safia Lamri
+      </footer>
+    </div>
+
+    <!-- MODALE to display charts in full screen -->
+    <div id="chart-modal-backdrop" class="hidden">
+      <div id="chart-modal-content">
+        <div id="chart-modal-header">
+          <span id="chart-modal-title"></span>
+          <button id="chart-modal-close">&times;</button>
+        </div>
+        <div id="chart-modal-body">
+          <div id="chart-modal-container"></div>
+          <div id="chart-modal-description"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
