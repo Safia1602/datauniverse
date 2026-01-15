@@ -4,6 +4,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import io
 import csv
+import re
 
 app = Flask(__name__)
 
@@ -39,55 +40,57 @@ def methodology(): return render_template("methodology.html")
 
 # --- ROUTES API (DONNÉES) ---
 
+# Ajoute 're' en haut du fichier si ce n'est pas déjà fait : import re
+
 @app.route("/api/jobs")
 def api_jobs():
-    """
-    Route principale. Charge TOUTES les colonnes nécessaires pour :
-    - Explorateur (modale, lien, description)
-    - Dashboard (source, salary_type)
-    - Observatoire (compétences, dates)
-    """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # SÉLECTION COMPLÈTE pour que rien ne manque à l'affichage
         query = """
             SELECT 
-                id, 
-                title, 
-                company, 
-                country, 
-                location, 
-                link,               -- Indispensable pour le bouton 'Apply'
-                source,             -- Indispensable pour le graphique 'Source'
-                date_posted,
-                salary_value, 
-                salary_currency, 
-                salary_type,        -- Indispensable pour le filtrage salaire
-                seniority_level, 
-                experience_years, 
-                technical_skills, 
-                tools_used, 
-                soft_skills, 
-                domains,
-                tasks,              -- Pour la modale détail
-                benefits,           -- Pour la modale détail
-                hybrid_policy, 
-                visa_sponsorship, 
-                description         -- Indispensable pour la recherche texte et la modale
+                id, title, company, country, location, link, source, date_posted,
+                salary_value, salary_currency, salary_type,
+                seniority_level, experience_years, 
+                technical_skills, tools_used, soft_skills, domains,
+                tasks, benefits, hybrid_policy, visa_sponsorship, description
             FROM jobs
             ORDER BY date_posted DESC
-            LIMIT 1000;             
+            LIMIT 2000;
         """
-        # NOTE : LIMIT 1000 est une sécurité pour éviter le crash mémoire sur Render Free
-        # car on charge la colonne 'description' qui est très lourde.
-        
         cur.execute(query)
         jobs = cur.fetchall()
         cur.close()
         conn.close()
-        return jsonify(jobs)
+
+        # --- NETTOYAGE FORCE COTE SERVEUR ---
+        # On transforme les chaînes "{Python,SQL}" en listes ["Python", "SQL"]
+        cleaned_jobs = []
+        for job in jobs:
+            new_job = dict(job) # On copie la ligne pour la modifier
+            
+            # Liste des colonnes à nettoyer
+            list_cols = ["technical_skills", "tools_used", "soft_skills", "domains", "tasks", "benefits"]
+            
+            for col in list_cols:
+                val = new_job.get(col)
+                if not val:
+                    new_job[col] = []
+                elif isinstance(val, list):
+                    new_job[col] = val # C'est déjà une liste, parfait
+                elif isinstance(val, str):
+                    # Nettoyage brutal : on enlève { } [ ] " ' et on coupe aux virgules
+                    clean_str = val.replace("{", "").replace("}", "").replace("[", "").replace("]", "").replace("'", "").replace('"', "")
+                    # On crée la liste en ignorant les vides
+                    new_job[col] = [x.strip() for x in clean_str.split(",") if x.strip()]
+                else:
+                    new_job[col] = []
+
+            cleaned_jobs.append(new_job)
+
+        return jsonify(cleaned_jobs)
+
     except Exception as e: 
         print(f"ERREUR SQL api_jobs: {str(e)}")
         return jsonify({"error": str(e)}), 500
