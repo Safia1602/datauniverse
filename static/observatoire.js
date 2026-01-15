@@ -69,29 +69,43 @@ document.addEventListener("DOMContentLoaded", () => {
     return s.split(/;|,|\|/).map((t) => t.replace(/['"]/g, "").trim().toLowerCase()).filter(Boolean);
   }
 
-  /* ROW PARSER */
+  /* ROW PARSER CORRIGÉ */
   function rowParser(d) {
     let date = null;
-    // Parsing date plus permissif
+    
+    // 1. GESTION ROBUSTE DES DATES
     if (d.date_posted) {
-      date = parseDate(d.date_posted) || parseDateAlt(d.date_posted);
-      // Fallback natif JS si D3 échoue (gère souvent mieux les formats ISO)
-      if (!date && !isNaN(Date.parse(d.date_posted))) {
-        date = new Date(d.date_posted);
+      // On essaie d'abord la méthode native JS (très forte pour lire les dates Python/SQL)
+      const nativeDate = new Date(d.date_posted);
+      
+      if (!isNaN(nativeDate.getTime())) {
+        date = nativeDate;
+      } else {
+        // Fallback : parser D3 si le format est strictement YYYY-MM-DD
+        date = parseDate(d.date_posted);
       }
     }
 
+    // DEBUG : Si c'est le premier élément, on regarde ce qui se passe
+    if (d.id === 1 || d.id === "1") {
+        console.log("DEBUG DATE - Raw:", d.date_posted, "Parsed:", date);
+    }
+
+    // 2. NETTOYAGE DES LISTES (Compétences)
+    // On s'assure que les compétences sont bien des listes et pas du texte
     const techSkills = parseSkillList(d.technical_skills);
     const toolsUsed = parseSkillList(d.tools_used);
     const softSkills = parseSkillList(d.soft_skills);
     const domains = parseSkillList(d.domains);
 
+    // 3. NETTOYAGE CHIFFRES
     let salary = d.salary_value ? +d.salary_value : NaN;
     if (!isFinite(salary)) salary = NaN;
 
     let expYears = d.experience_years ? +d.experience_years : NaN;
     if (!isFinite(expYears)) expYears = NaN;
 
+    // 4. BOOLEENS
     const toBool = (v) => {
         if (v === true || v === false) return v;
         const s = String(v || "").toLowerCase();
@@ -101,14 +115,17 @@ document.addEventListener("DOMContentLoaded", () => {
     return {
       ...d,
       _date: date,
-      _month: date ? d3.timeMonth(date) : null,
+      _month: date ? d3.timeMonth(date) : null, // Indispensable pour les graphiques temporels
       _role: classifyRole(d.title || d.job_title),
+      
       _techSkills: techSkills,
       _toolsUsed: toolsUsed,
       _softSkills: softSkills,
       _domains: domains,
+
       _hybrid: toBool(d.hybrid_policy),
       _visa: toBool(d.visa_sponsorship),
+
       _country: d.country || "Not specified",
       _salary: salary,
       _exp: expYears,
@@ -794,81 +811,135 @@ document.addEventListener("DOMContentLoaded", () => {
     svg.selectAll("*").remove();
     if (extra) extra.textContent = "";
 
+    // On utilise filteredJobs s'il y en a, sinon allJobs
     const data = filteredJobs.length ? filteredJobs : allJobs;
-    if (!data.length || !output) return;
+    
+    if (!output) return;
 
     const selectedSkills = Array.from(mmwSelectedSkills);
     const expLevel = expSelect ? +expSelect.value : 0;
 
     if (!selectedSkills.length) {
-      output.innerHTML = "Select some skills to see your estimated worth inside this dataset.";
+      output.innerHTML = "👆 Select skills above to estimate your worth.";
       return;
     }
 
+    // CALCUL DU SCORE DE MATCHING
     const scored = data.map((d) => {
+      // On combine tech skills et tools pour maximiser les chances de match
       const jobSkills = new Set([...d._techSkills, ...d._toolsUsed]);
       let matchCount = 0;
+      
       selectedSkills.forEach((s) => {
-        if (Array.from(jobSkills).some((js) => js.includes(s))) matchCount++;
+        // Recherche partielle (ex: "python" matche "python 3")
+        if (Array.from(jobSkills).some((js) => js.includes(s))) {
+            matchCount++;
+        }
       });
+      
       const skillScore = matchCount / selectedSkills.length;
+
+      // Bonus expérience
       let expScore = 1;
       if (!isNaN(d._exp)) {
-        if (expLevel === 0 && d._exp <= 1) expScore = 1.1;
-        else if (expLevel === 2 && d._exp >= 2 && d._exp <= 4) expScore = 1.1;
+        if (expLevel === 0 && d._exp <= 2) expScore = 1.1; // Junior match Junior
+        else if (expLevel === 2 && d._exp >= 2 && d._exp <= 5) expScore = 1.1;
         else if (expLevel === 5 && d._exp >= 5) expScore = 1.1;
-        else expScore = 0.8;
+        else expScore = 0.9;
       }
+
       return { job: d, score: skillScore * expScore };
     });
 
-    const filtered = scored.filter((s) => s.score > 0.3);
-    const totalOffers = data.length;
-    const matchingOffers = filtered.length;
+    // SEUIL DE TOLÉRANCE : On garde si au moins 1 compétence matche (si score > 0)
+    // Au lieu de 0.3 qui était trop strict si on ne coche qu'une compétence
+    const threshold = selectedSkills.length === 1 ? 0.1 : 0.25;
+    const matchedJobs = scored.filter((s) => s.score >= threshold);
 
-    if (!matchingOffers) {
-      output.innerHTML = "We couldn't find offers close enough to your stack in the current filters.";
+    if (!matchedJobs.length) {
+      output.innerHTML = "No offers match your specific stack in the current filters. Try adding/removing skills.";
       return;
     }
 
-    const perc = (matchingOffers / totalOffers) * 100;
-    const salaries = filtered.map((d) => d.job._salary).filter((s) => s && isFinite(s));
-    const medianSalary = salaries.length ? d3.median(salaries) : NaN;
+    // Calcul des salaires sur les offres matchées
+    const perc = (matchedJobs.length / data.length) * 100;
+    const salaries = matchedJobs
+        .map((d) => d.job._salary)
+        .filter((s) => s && isFinite(s) && s > 10000); // On exclut les salaires aberrants (<10k)
 
-    output.innerHTML = `Based on the current filters, <span>${matchingOffers.toLocaleString()}</span> offers match your skill stack (${perc.toFixed(1)}% of all filtered offers).<br>` + (medianSalary ? `Estimated median salary for similar profiles: <span>$${Math.round(medianSalary).toLocaleString()}</span>.` : "No reliable salary information for these offers yet.");
+    const medianSalary = salaries.length ? d3.median(salaries) : 0;
 
-    if (!salaries.length || salaries.length < 5 || !container) return;
+    output.innerHTML = 
+      `<span>${matchedJobs.length}</span> offers match your profile (${perc.toFixed(1)}%).<br>` +
+      (medianSalary > 0
+        ? `Estimated median salary: <span>$${Math.round(medianSalary).toLocaleString()}</span>`
+        : "Not enough salary data for these offers.");
 
+    if (!salaries.length || salaries.length < 3 || !container) {
+        if(medianSalary === 0 && matchedJobs.length > 0) {
+             svg.append("text")
+                .attr("x", container.clientWidth/2)
+                .attr("y", container.clientHeight/2)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#888")
+                .text("Matches found, but no salary info available.");
+        }
+        return;
+    }
+
+    // --- DESSIN DU GRAPHIQUE ---
     const width = container.clientWidth || 600;
     const height = container.clientHeight || 260;
-    const margin = { top: 16, right: 16, bottom: 26, left: 50 };
+    const margin = { top: 20, right: 20, bottom: 30, left: 50 };
 
     svg.attr("viewBox", [0, 0, width, height]);
 
-    const x = d3.scaleLinear().domain(d3.extent(salaries)).nice().range([margin.left, width - margin.right]);
+    const x = d3.scaleLinear()
+      .domain(d3.extent(salaries))
+      .nice()
+      .range([margin.left, width - margin.right]);
+
     const bins = d3.bin().domain(x.domain()).thresholds(10)(salaries);
-    const y = d3.scaleLinear().domain([0, d3.max(bins, (d) => d.length) || 1]).nice().range([height - margin.bottom, margin.top]);
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(bins, (d) => d.length) || 1])
+      .nice()
+      .range([height - margin.bottom, margin.top]);
 
-    const xAxis = d3.axisBottom(x).ticks(5).tickFormat((d) => d >= 1000 ? "$" + Math.round(d / 1000) + "k" : "$" + Math.round(d));
-    const yAxis = d3.axisLeft(y).ticks(4);
+    const xAxis = d3.axisBottom(x).ticks(5).tickFormat((d) => "$" + d/1000 + "k");
+    
+    svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).call(xAxis);
+    svg.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(3));
 
-    svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).attr("class", "axis").call(xAxis);
-    svg.append("g").attr("transform", `translate(${margin.left},0)`).attr("class", "axis").call(yAxis).call((g) => g.select(".domain").remove());
-
-    svg.selectAll(".bar").data(bins).join("g").attr("class", "bar").append("rect")
-      .attr("x", (d) => x(d.x0) + 1).attr("y", (d) => y(d.length)).attr("width", (d) => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("height", (d) => y(0) - y(d.length)).attr("fill", "rgba(34,211,238,0.6)")
-      .on("mouseenter", (event, d) => {
-        tooltip.style("opacity", 1).style("left", event.offsetX + 10 + "px").style("top", event.offsetY - 8 + "px").html(`<strong>${d.length} offer(s)</strong><br>Salary range: $${Math.round(d.x0).toLocaleString()}–$${Math.round(d.x1).toLocaleString()}`);
+    svg.selectAll(".bar").data(bins).join("rect")
+      .attr("x", d => x(d.x0) + 1)
+      .attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1))
+      .attr("y", d => y(d.length))
+      .attr("height", d => y(0) - y(d.length))
+      .attr("fill", "rgba(0, 255, 255, 0.6)")
+      .on("mouseover", function(event, d) {
+          d3.select(this).attr("fill", "#00ffff");
+          tooltip.style("opacity", 1)
+                 .html(`${d.length} offers<br>$${Math.round(d.x0/1000)}k - $${Math.round(d.x1/1000)}k`)
+                 .style("left", event.pageX + 10 + "px")
+                 .style("top", event.pageY - 20 + "px");
       })
-      .on("mouseleave", () => tooltip.style("opacity", 0));
+      .on("mouseout", function() {
+          d3.select(this).attr("fill", "rgba(0, 255, 255, 0.6)");
+          tooltip.style("opacity", 0);
+      });
 
+    // Ligne médiane
     if (medianSalary) {
-      svg.append("line").attr("x1", x(medianSalary)).attr("x2", x(medianSalary)).attr("y1", margin.top).attr("y2", height - margin.bottom).attr("stroke", "#f97316").attr("stroke-dasharray", "4,2").attr("stroke-width", 1.5);
-      svg.append("text").attr("x", x(medianSalary)).attr("y", margin.top - 4).attr("text-anchor", "middle").attr("fill", "#f97316").attr("font-size", 10).text("Median");
+      svg.append("line")
+         .attr("x1", x(medianSalary)).attr("x2", x(medianSalary))
+         .attr("y1", margin.top).attr("y2", height - margin.bottom)
+         .attr("stroke", "#f97316").attr("stroke-width", 2).attr("stroke-dasharray", "4,4");
+         
+      svg.append("text")
+         .attr("x", x(medianSalary)).attr("y", margin.top - 5)
+         .attr("text-anchor", "middle").attr("fill", "#f97316").style("font-size", "10px")
+         .text(`Median: $${Math.round(medianSalary/1000)}k`);
     }
-
-    svg.append("text").attr("x", width / 2).attr("y", height - 4).attr("text-anchor", "middle").attr("fill", "#6b7280").attr("font-size", 10).text("Salary distribution for offers similar to your profile");
-    if (extra) extra.textContent = "This is an approximate, dataset-based view — not a salary promise.";
   }
 
   /* 11. WORLD MAP */
