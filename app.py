@@ -45,16 +45,25 @@ def api_jobs():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # ⚠️ OPTIMISATION : On ne sélectionne PAS la description ici pour sauver la RAM.
-        # On ne prend que les colonnes utiles aux filtres et graphiques.
-        # On limite à 2000 résultats pour ne pas faire crasher le serveur gratuit.
+        # J'ai retiré 'contract_type' qui faisait planter la requête
         query = """
             SELECT 
-                id, title, company, country, location, 
-                salary_value, salary_currency, seniority_level, 
-                experience_years, technical_skills, soft_skills, 
-                hybrid_policy, visa_sponsorship, date_posted,
-                contract_type, tools_used, domains
+                id, 
+                title, 
+                company, 
+                country, 
+                location, 
+                salary_value, 
+                salary_currency, 
+                seniority_level, 
+                experience_years, 
+                technical_skills, 
+                soft_skills, 
+                hybrid_policy, 
+                visa_sponsorship, 
+                date_posted,
+                tools_used, 
+                domains
             FROM jobs
             ORDER BY date_posted DESC
             LIMIT 2000;
@@ -64,7 +73,11 @@ def api_jobs():
         cur.close()
         conn.close()
         return jsonify(jobs)
-    except Exception as e: return jsonify({"error": str(e)}), 500
+    except Exception as e: 
+        # C'est ici que l'erreur est attrapée. 
+        # Regarde tes logs Render si ça replante, ça nous dira quelle autre colonne manque.
+        print(f"ERREUR SQL: {str(e)}") 
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/job/<int:job_id>")
 def api_job(job_id: int):
