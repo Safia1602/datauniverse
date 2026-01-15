@@ -7,11 +7,11 @@ import csv
 
 app = Flask(__name__)
 
-# --- CONNEXION BDD ---
+# --- GESTION DE LA CONNEXION ---
 def get_db_connection():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
-        raise ValueError("DATABASE_URL manquante")
+        raise ValueError("DATABASE_URL manquante. Vérifie tes variables d'environnement sur Render.")
     conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
     return conn
 
@@ -37,15 +37,24 @@ def big_picture(): return render_template("index.html")
 @app.route("/methodology")
 def methodology(): return render_template("methodology.html")
 
-# --- ROUTES API (DONNÉES JSON OPTIMISÉES) ---
+# --- ROUTES API (DONNÉES) ---
 
 @app.route("/api/jobs")
 def api_jobs():
+    """
+    Route principale optimisée pour la mémoire (RAM) de Render.
+    Exclut les colonnes de texte lourd (description) mais inclut TOUT ce dont
+    les tableaux de bord (JS) ont besoin.
+    """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # J'ai retiré 'contract_type' qui faisait planter la requête
+        # SÉLECTION PRÉCISE des colonnes requises par tes fichiers JS :
+        # - observatoire.js : skills, domains, dates, hybrid, visa...
+        # - page1-dashboard.js : salary_type, source, company...
+        # - explorateur.html : link, benefits...
+        
         query = """
             SELECT 
                 id, 
@@ -53,35 +62,42 @@ def api_jobs():
                 company, 
                 country, 
                 location, 
+                link,
+                source,
+                date_posted,
                 salary_value, 
                 salary_currency, 
+                salary_type,
                 seniority_level, 
                 experience_years, 
                 technical_skills, 
-                soft_skills, 
-                hybrid_policy, 
-                visa_sponsorship, 
-                date_posted,
                 tools_used, 
-                domains
+                soft_skills, 
+                domains,
+                benefits,
+                hybrid_policy, 
+                visa_sponsorship
             FROM jobs
             ORDER BY date_posted DESC
             LIMIT 2000;
         """
+        # LIMIT 2000 est vital pour le plan gratuit (512 Mo RAM).
+        
         cur.execute(query)
         jobs = cur.fetchall()
         cur.close()
         conn.close()
         return jsonify(jobs)
     except Exception as e: 
-        # C'est ici que l'erreur est attrapée. 
-        # Regarde tes logs Render si ça replante, ça nous dira quelle autre colonne manque.
-        print(f"ERREUR SQL: {str(e)}") 
+        print(f"ERREUR SQL api_jobs: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/job/<int:job_id>")
 def api_job(job_id: int):
-    # ICI c'est ok de faire SELECT * car on ne charge qu'une seule ligne
+    """
+    Récupère une offre unique AVEC la description complète.
+    Utilisé si tu cliques sur une offre spécifique (selon l'implémentation JS).
+    """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -95,41 +111,63 @@ def api_job(job_id: int):
 
 @app.route("/api/d3-data")
 def api_d3_data():
+    """
+    Données pour la page Tendances (Nuage de points).
+    """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # Optimisation aussi pour D3
-        cur.execute("SELECT id, title, x_umap, y_umap, salary_value, skills_tech, topic_keywords FROM d3_data LIMIT 2000;")
+        
+        # On essaie de sélectionner les colonnes qui existent dans ta table d3_data
+        # Note : Si 'topic_filtered' manque dans la DB, le JS mettra les points en gris/noir.
+        query = """
+            SELECT 
+                id, 
+                title, 
+                x_umap, 
+                y_umap, 
+                salary_value, 
+                skills_tech, 
+                topic_keywords, 
+                domains 
+            FROM d3_data 
+            LIMIT 2000;
+        """
+        cur.execute(query)
         data = cur.fetchall()
         cur.close()
         conn.close()
         return jsonify(data)
-    except Exception as e: return jsonify({"error": str(e)}), 500
+    except Exception as e: 
+        print(f"ERREUR SQL api_d3_data: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
-# --- ROUTES MANQUANTES & COMPATIBILITÉ ---
+# --- ROUTES DE COMPATIBILITÉ (POUR QUE LE VIEUX JS FONCTIONNE) ---
 
 @app.route("/api/jobs/light")
 def api_jobs_light():
-    # Redirige vers la version optimisée (qui est déjà "light")
+    # Redirige vers la route principale (qui est déjà optimisée)
     return api_jobs()
 
 @app.route("/api/data")
 def api_data_compat():
+    # Utilisé par observatoire.js
     return api_jobs()
 
 @app.route("/api/stats-data")
 def api_stats_data_compat():
+    # Utilisé par page1-dashboard.js et explorateur.html
     return api_jobs()
 
-# --- ROUTES DE TÉLÉCHARGEMENT (GÉNÉRATION CSV) ---
+# --- TÉLÉCHARGEMENT CSV (GÉNÉRÉ À LA VOLÉE) ---
 
 @app.route("/download/stats")
 def download_stats():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # Attention: Le téléchargement complet peut être lent, mais on le laisse complet pour l'utilisateur
-        cur.execute("SELECT * FROM jobs LIMIT 5000") # Petite sécurité au cas où
+        # On limite à 3000 pour éviter le timeout lors de la génération du CSV
+        cur.execute("SELECT * FROM jobs LIMIT 3000") 
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -152,7 +190,7 @@ def download_d3():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM d3_data LIMIT 5000")
+        cur.execute("SELECT * FROM d3_data LIMIT 3000")
         rows = cur.fetchall()
         cur.close()
         conn.close()
