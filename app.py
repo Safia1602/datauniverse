@@ -7,7 +7,7 @@ import csv
 
 app = Flask(__name__)
 
-# --- GESTION DE LA CONNEXION ---
+# --- GESTION DE LA CONNEXION BDD ---
 def get_db_connection():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -42,19 +42,16 @@ def methodology(): return render_template("methodology.html")
 @app.route("/api/jobs")
 def api_jobs():
     """
-    Route principale optimisée pour la mémoire (RAM) de Render.
-    Exclut les colonnes de texte lourd (description) mais inclut TOUT ce dont
-    les tableaux de bord (JS) ont besoin.
+    Route principale. Charge TOUTES les colonnes nécessaires pour :
+    - Explorateur (modale, lien, description)
+    - Dashboard (source, salary_type)
+    - Observatoire (compétences, dates)
     """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # SÉLECTION PRÉCISE des colonnes requises par tes fichiers JS :
-        # - observatoire.js : skills, domains, dates, hybrid, visa...
-        # - page1-dashboard.js : salary_type, source, company...
-        # - explorateur.html : link, benefits...
-        
+        # SÉLECTION COMPLÈTE pour que rien ne manque à l'affichage
         query = """
             SELECT 
                 id, 
@@ -62,26 +59,29 @@ def api_jobs():
                 company, 
                 country, 
                 location, 
-                link,
-                source,
+                link,               -- Indispensable pour le bouton 'Apply'
+                source,             -- Indispensable pour le graphique 'Source'
                 date_posted,
                 salary_value, 
                 salary_currency, 
-                salary_type,
+                salary_type,        -- Indispensable pour le filtrage salaire
                 seniority_level, 
                 experience_years, 
                 technical_skills, 
                 tools_used, 
                 soft_skills, 
                 domains,
-                benefits,
+                tasks,              -- Pour la modale détail
+                benefits,           -- Pour la modale détail
                 hybrid_policy, 
-                visa_sponsorship
+                visa_sponsorship, 
+                description         -- Indispensable pour la recherche texte et la modale
             FROM jobs
             ORDER BY date_posted DESC
-            LIMIT 2000;
+            LIMIT 1000;             
         """
-        # LIMIT 2000 est vital pour le plan gratuit (512 Mo RAM).
+        # NOTE : LIMIT 1000 est une sécurité pour éviter le crash mémoire sur Render Free
+        # car on charge la colonne 'description' qui est très lourde.
         
         cur.execute(query)
         jobs = cur.fetchall()
@@ -92,12 +92,29 @@ def api_jobs():
         print(f"ERREUR SQL api_jobs: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/d3-data")
+def api_d3_data():
+    """
+    Données pour la page Tendances (Nuage de points).
+    Note : Si le graphique est incomplet, c'est que la table d3_data n'a pas toutes les colonnes.
+    On fait un SELECT * pour récupérer tout ce qui est disponible.
+    """
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # On limite aussi pour la performance
+        cur.execute("SELECT * FROM d3_data LIMIT 2000;")
+        data = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(data)
+    except Exception as e: 
+        print(f"ERREUR SQL api_d3_data: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# --- ROUTES DE DÉTAIL (Optionnel, si le JS charge par ID) ---
 @app.route("/api/job/<int:job_id>")
 def api_job(job_id: int):
-    """
-    Récupère une offre unique AVEC la description complète.
-    Utilisé si tu cliques sur une offre spécifique (selon l'implémentation JS).
-    """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -109,64 +126,30 @@ def api_job(job_id: int):
         return jsonify(job)
     except Exception as e: return jsonify({"error": str(e)}), 500
 
-@app.route("/api/d3-data")
-def api_d3_data():
-    """
-    Données pour la page Tendances (Nuage de points).
-    """
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # On essaie de sélectionner les colonnes qui existent dans ta table d3_data
-        # Note : Si 'topic_filtered' manque dans la DB, le JS mettra les points en gris/noir.
-        query = """
-            SELECT 
-                id, 
-                title, 
-                x_umap, 
-                y_umap, 
-                salary_value, 
-                skills_tech, 
-                topic_keywords, 
-                domains 
-            FROM d3_data 
-            LIMIT 2000;
-        """
-        cur.execute(query)
-        data = cur.fetchall()
-        cur.close()
-        conn.close()
-        return jsonify(data)
-    except Exception as e: 
-        print(f"ERREUR SQL api_d3_data: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# --- ROUTES DE COMPATIBILITÉ (POUR QUE LE VIEUX JS FONCTIONNE) ---
+# --- ROUTES DE COMPATIBILITÉ (Redirections pour tes fichiers JS) ---
 
 @app.route("/api/jobs/light")
 def api_jobs_light():
-    # Redirige vers la route principale (qui est déjà optimisée)
     return api_jobs()
 
 @app.route("/api/data")
 def api_data_compat():
-    # Utilisé par observatoire.js
+    # Utilisé par observatoire.js (const DATA_FILE = "/api/data";)
     return api_jobs()
 
 @app.route("/api/stats-data")
 def api_stats_data_compat():
-    # Utilisé par page1-dashboard.js et explorateur.html
+    # Utilisé par page1-dashboard.js (const dataPath = "/api/stats-data";)
     return api_jobs()
 
-# --- TÉLÉCHARGEMENT CSV (GÉNÉRÉ À LA VOLÉE) ---
+# --- TÉLÉCHARGEMENT CSV ---
 
 @app.route("/download/stats")
 def download_stats():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # On limite à 3000 pour éviter le timeout lors de la génération du CSV
+        # Limite de sécurité pour l'export CSV
         cur.execute("SELECT * FROM jobs LIMIT 3000") 
         rows = cur.fetchall()
         cur.close()
