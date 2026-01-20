@@ -12,13 +12,13 @@ app = Flask(__name__)
 def get_db_connection():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
-        raise ValueError("DATABASE_URL manquante. Vérifie tes variables d'environnement sur Render.")
+        raise ValueError("DATABASE_URL missing. see the variables on render.")
     conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
     return conn
 
 # --- ROUTES HTML (PAGES) ---
 @app.route("/")
-def observatoire(): return render_template("observatoire.html")
+def startup(): return render_template("startup.html")
 
 @app.route("/explorateur")
 def explorateur(): return render_template("explorateur.html")
@@ -26,8 +26,8 @@ def explorateur(): return render_template("explorateur.html")
 @app.route("/tendances")
 def tendances(): return render_template("tendances.html")
 
-@app.route("/startup")
-def startup(): return render_template("startup.html")
+@app.route("/observatoire")
+def observatoire(): return render_template("observatoire.html")
 
 @app.route("/explanation")
 def explanation(): return render_template("explanation.html")
@@ -38,9 +38,7 @@ def big_picture(): return render_template("index.html")
 @app.route("/methodology")
 def methodology(): return render_template("methodology.html")
 
-# --- ROUTES API (DONNÉES) ---
-
-# Ajoute 're' en haut du fichier si ce n'est pas déjà fait : import re
+# --- ROUTES API  ---
 
 @app.route("/api/jobs")
 def api_jobs():
@@ -64,13 +62,13 @@ def api_jobs():
         cur.close()
         conn.close()
 
-        # --- NETTOYAGE FORCE COTE SERVEUR ---
-        # On transforme les chaînes "{Python,SQL}" en listes ["Python", "SQL"]
+        # --- cleaning ---
+        # transform "{Python,SQL}" en listes ["Python", "SQL"]
         cleaned_jobs = []
         for job in jobs:
-            new_job = dict(job) # On copie la ligne pour la modifier
+            new_job = dict(job) 
             
-            # Liste des colonnes à nettoyer
+            #  list_cols to clean
             list_cols = ["technical_skills", "tools_used", "soft_skills", "domains", "tasks", "benefits"]
             
             for col in list_cols:
@@ -78,11 +76,9 @@ def api_jobs():
                 if not val:
                     new_job[col] = []
                 elif isinstance(val, list):
-                    new_job[col] = val # C'est déjà une liste, parfait
+                    new_job[col] = val 
                 elif isinstance(val, str):
-                    # Nettoyage brutal : on enlève { } [ ] " ' et on coupe aux virgules
                     clean_str = val.replace("{", "").replace("}", "").replace("[", "").replace("]", "").replace("'", "").replace('"', "")
-                    # On crée la liste en ignorant les vides
                     new_job[col] = [x.strip() for x in clean_str.split(",") if x.strip()]
                 else:
                     new_job[col] = []
@@ -98,14 +94,13 @@ def api_jobs():
 @app.route("/api/d3-data")
 def api_d3_data():
     """
-    Données pour la page Tendances (Nuage de points).
-    Note : Si le graphique est incomplet, c'est que la table d3_data n'a pas toutes les colonnes.
-    On fait un SELECT * pour récupérer tout ce qui est disponible.
+Data for the Trends page (Scatter plot).
+Note: If the graph is incomplete, it's because the d3_data table doesn't have all the columns. 
+We use SELECT * to retrieve all the available data.
     """
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # On limite aussi pour la performance
         cur.execute("SELECT * FROM d3_data LIMIT 2000;")
         data = cur.fetchall()
         cur.close()
@@ -115,7 +110,7 @@ def api_d3_data():
         print(f"ERREUR SQL api_d3_data: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# --- ROUTES DE DÉTAIL (Optionnel, si le JS charge par ID) ---
+# --- ROUTES ---
 @app.route("/api/job/<int:job_id>")
 def api_job(job_id: int):
     try:
@@ -129,7 +124,7 @@ def api_job(job_id: int):
         return jsonify(job)
     except Exception as e: return jsonify({"error": str(e)}), 500
 
-# --- ROUTES DE COMPATIBILITÉ (Redirections pour tes fichiers JS) ---
+# --- ROUTES compatibilty ---
 
 @app.route("/api/jobs/light")
 def api_jobs_light():
@@ -145,7 +140,7 @@ def api_stats_data_compat():
     # Utilisé par page1-dashboard.js (const dataPath = "/api/stats-data";)
     return api_jobs()
 
-# --- TÉLÉCHARGEMENT CSV ---
+# --- CSV ---
 
 @app.route("/download/stats")
 def download_stats():
@@ -158,7 +153,7 @@ def download_stats():
         cur.close()
         conn.close()
 
-        if not rows: return "Pas de données", 404
+        if not rows: return "no data", 404
 
         si = io.StringIO()
         writer = csv.DictWriter(si, fieldnames=rows[0].keys())
@@ -181,7 +176,7 @@ def download_d3():
         cur.close()
         conn.close()
 
-        if not rows: return "Pas de données", 404
+        if not rows: return "no data", 404
 
         si = io.StringIO()
         writer = csv.DictWriter(si, fieldnames=rows[0].keys())
