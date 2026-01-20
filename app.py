@@ -54,7 +54,7 @@ def api_jobs():
                 technical_skills, tools_used, soft_skills, domains,
                 tasks, benefits, hybrid_policy, visa_sponsorship, description
             FROM jobs
-            ORDER BY date_posted DESC
+            ORDER BY date_posted ASC
             LIMIT 2000;
         """
         cur.execute(query)
